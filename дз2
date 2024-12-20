@@ -1,0 +1,68 @@
+import multiprocessing
+import time
+
+// Функція для обчислення кроків за гіпотезою Коллатца
+def collatz_steps(number):
+    steps = 0
+    while number != 1:
+        if number % 2 == 0:
+            number //= 2
+        else:
+            number = 3 * number + 1
+        steps += 1
+    return steps
+
+// Функція для обробки чисел у процесі
+def worker(start, end, result_queue):
+    local_total_steps = 0
+    local_count = 0
+
+    for number in range(start, end):
+        steps = collatz_steps(number)
+        local_total_steps += steps
+        local_count += 1
+
+    result_queue.put((local_total_steps, local_count))
+
+// Основна функція для паралельного обчислення
+def main(total_numbers, num_processes):
+    // Створення черги для результатів
+    result_queue = multiprocessing.Queue()
+
+    // Розподіл завдань між процесами
+    chunk_size = total_numbers // num_processes
+    processes = []
+
+    for i in range(num_processes):
+        start = i * chunk_size + 1
+        end = (i + 1) * chunk_size + 1 if i != num_processes - 1 else total_numbers + 1
+        p = multiprocessing.Process(target=worker, args=(start, end, result_queue))
+        processes.append(p)
+        p.start()
+
+    // Збір результатів
+    total_steps = 0
+    total_count = 0
+
+    for _ in processes:
+        local_total_steps, local_count = result_queue.get()
+        total_steps += local_total_steps
+        total_count += local_count
+
+    // Очікування завершення всіх процесів
+    for p in processes:
+        p.join()
+
+    // Підрахунок середньої кількості кроків
+    average_steps = total_steps / total_count
+    print(f"Середня кількість кроків для {total_numbers} чисел: {average_steps:.2f}")
+
+if __name__ == "__main__":
+    TOTAL_NUMBERS = 1_000_000  // Можна збільшити до 10 000 000
+    NUM_PROCESSES = 4          // Задайте кількість процесів відповідно до кількості ядер процесора
+
+    start_time = time.time()
+    main(TOTAL_NUMBERS, NUM_PROCESSES)
+    end_time = time.time()
+
+    print(f"Час виконання: {end_time - start_time:.2f} секунд")
